@@ -9,15 +9,13 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import cn.alvkeke.launcher.ui.theme.LauncherTheme
+import androidx.core.graphics.scale
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,9 +72,12 @@ fun AppGridItem(
     val icon = remember { mutableStateOf<ImageBitmap?>(null) }
     val iconSize = 48.dp
 
-    LaunchedEffect(appInfo.packageName) {
-        icon.value = appInfo.loadIcon(context.packageManager).toBitmap().asImageBitmap()
-    }
+//    LaunchedEffect(appInfo.packageName) {
+//        val scaledBitmap = appInfo.loadIcon(context.packageManager)
+//            .toBitmap()
+//            .scale(iconSize.value.toInt(), iconSize.value.toInt(), true)
+//        icon.value = scaledBitmap.asImageBitmap()
+//    }
 
     Column(modifier = modifier.padding(8.dp).height(100.dp)) {
         val imageModifier = Modifier.width(iconSize)
@@ -95,9 +97,9 @@ fun AppGridItem(
 
 @Composable
 fun AppGrid(list: List<ApplicationInfo>) {
-    LazyVerticalStaggeredGrid(
-        columns = StaggeredGridCells.Fixed(4),
-        verticalItemSpacing = 4.dp,
+    LazyVerticalGrid (
+        columns = GridCells.Fixed(4),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         modifier = Modifier.fillMaxSize()
     ) {
