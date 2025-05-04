@@ -10,9 +10,12 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -30,12 +33,12 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
-import cn.alvkeke.launcher.ui.theme.LauncherTheme
 import androidx.core.graphics.scale
+import cn.alvkeke.launcher.ui.theme.LauncherTheme
 
 class MainActivity : ComponentActivity() {
     companion object {
-        const val APP_COUNT_PER_PAGE = 4*7;
+        const val APP_COUNT_PER_PAGE = 4*7
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -64,7 +67,11 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             LauncherTheme {
-                AppPagers(pagedApps)
+                AppPagers(pagedApps,
+                    Modifier
+                        .fillMaxSize()
+                        .padding(WindowInsets.systemBars.asPaddingValues())
+                )
             }
         }
     }
@@ -127,11 +134,11 @@ fun AppPageContent(
 }
 
 @Composable
-fun AppPagers(list: List<List<ApplicationInfo>>) {
+fun AppPagers(list: List<List<ApplicationInfo>>, modifier: Modifier = Modifier) {
     val pagerState = rememberPagerState {
         list.size
     }
-    HorizontalPager(state = pagerState) { page ->
+    HorizontalPager(state = pagerState, modifier = modifier) { page ->
         AppPageContent (list[page])
     }
 }
