@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,31 +34,37 @@ import cn.alvkeke.launcher.ui.theme.LauncherTheme
 import androidx.core.graphics.scale
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        const val APP_COUNT_PER_PAGE = 4*7;
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val testList: ArrayList<String> = ArrayList()
-        for (i in 0..10) {
-            testList.add(i.toString())
-        }
-
-        var appList = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
+        var allApps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
             .filter { appInfo ->
                 packageManager.getLaunchIntentForPackage(appInfo.packageName) != null
             }
+        println("Apps count: ${allApps.size}")
 
-        println("Apps count: ${appList.size}")
+        // move apps into a new list
+        val pagedApps = ArrayList<List<ApplicationInfo>>()
+        for (i in allApps.indices step APP_COUNT_PER_PAGE) {
+            val end = if (i + APP_COUNT_PER_PAGE < allApps.size)
+                    i + APP_COUNT_PER_PAGE else allApps.size
+            pagedApps.add(allApps.subList(i, end))
+        }
 
-        for (i in appList) {
-            if (i == null) continue
+        println("Page count: ${pagedApps.size}")
+        for (i in 0 until pagedApps.size) {
+            val page = pagedApps[i]
+            println("Page-$i, app count: ${page.size}")
         }
 
         setContent {
             LauncherTheme {
-                    AppGrid(
-                        list = appList
-                    )
+                AppPagers(pagedApps)
             }
         }
     }
@@ -72,12 +80,14 @@ fun AppGridItem(
     val icon = remember { mutableStateOf<ImageBitmap?>(null) }
     val iconSize = 48.dp
 
-//    LaunchedEffect(appInfo.packageName) {
-//        val scaledBitmap = appInfo.loadIcon(context.packageManager)
-//            .toBitmap()
-//            .scale(iconSize.value.toInt(), iconSize.value.toInt(), true)
-//        icon.value = scaledBitmap.asImageBitmap()
-//    }
+    LaunchedEffect(appInfo.packageName) {
+        // use scaled bitmap
+        val scaleFactor = 3
+        val scaledBitmap = appInfo.loadIcon(context.packageManager)
+            .toBitmap()
+            .scale(iconSize.value.toInt()*scaleFactor, iconSize.value.toInt()*scaleFactor, true)
+        icon.value = scaledBitmap.asImageBitmap()
+    }
 
     Column(modifier = modifier.padding(8.dp).height(100.dp)) {
         val imageModifier = Modifier.width(iconSize)
@@ -106,5 +116,22 @@ fun AppGrid(list: List<ApplicationInfo>) {
         items(list.size) { idx ->
             AppGridItem(list[idx])
         }
+    }
+}
+
+@Composable
+fun AppPageContent(
+    list: List<ApplicationInfo>
+) {
+    AppGrid(list)
+}
+
+@Composable
+fun AppPagers(list: List<List<ApplicationInfo>>) {
+    val pagerState = rememberPagerState {
+        list.size
+    }
+    HorizontalPager(state = pagerState) { page ->
+        AppPageContent (list[page])
     }
 }
