@@ -35,11 +35,15 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.scale
 import cn.alvkeke.launcher.ui.theme.LauncherTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+
+const val APP_COLUMN_PER_PAGE = 4
+const val APP_ROW_PER_PAGE = 7
+const val APP_COUNT_PER_PAGE = APP_COLUMN_PER_PAGE * APP_ROW_PER_PAGE
 
 class MainActivity : ComponentActivity() {
-    companion object {
-        const val APP_COUNT_PER_PAGE = 4*7
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -87,13 +91,20 @@ fun AppGridItem(
     val icon = remember { mutableStateOf<ImageBitmap?>(null) }
     val iconSize = 48.dp
 
-    LaunchedEffect(appInfo.packageName) {
-        // use scaled bitmap
-        val scaleFactor = 3
-        val scaledBitmap = appInfo.loadIcon(context.packageManager)
-            .toBitmap()
-            .scale(iconSize.value.toInt()*scaleFactor, iconSize.value.toInt()*scaleFactor, true)
-        icon.value = scaledBitmap.asImageBitmap()
+    if (icon.value == null) {
+        LaunchedEffect(appInfo.packageName) {
+            withContext(Dispatchers.IO) {
+                val scaleFactor = 3
+                val scaledBitmap = appInfo.loadIcon(context.packageManager)
+                    .toBitmap()
+                    .scale(
+                        iconSize.value.toInt() * scaleFactor,
+                        iconSize.value.toInt() * scaleFactor,
+                        true
+                    )
+                icon.value = scaledBitmap.asImageBitmap()
+            }
+        }
     }
 
     Column(modifier = modifier.padding(8.dp).height(100.dp)) {
