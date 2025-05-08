@@ -149,7 +149,13 @@ fun AppPagers(list: List<List<ApplicationInfo>>, modifier: Modifier = Modifier) 
     val pagerState = rememberPagerState {
         list.size
     }
-    HorizontalPager(state = pagerState, modifier = modifier) { page ->
+    HorizontalPager(state = pagerState,
+        modifier = modifier,
+        // make all pages be loaded on initialization
+        // think this should not be the best practice, but it works
+        // TODO: find a better way to load pages without lag
+        beyondViewportPageCount = list.size
+    ) { page ->
         AppPageContent (list[page])
     }
 }
