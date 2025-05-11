@@ -9,20 +9,21 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Text
@@ -40,7 +41,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
-import androidx.core.graphics.scale
 import cn.alvkeke.launcher.ui.theme.LauncherTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -104,33 +104,41 @@ fun AppGridItem(
 ) {
     // add Image item for App icon
     val context = LocalContext.current
-    val icon = remember { mutableStateOf<ImageBitmap?>(null) }
-    val iconSize = 48.dp
 
-    if (icon.value == null) {
-        LaunchedEffect(appInfo.packageName) {
-            withContext(Dispatchers.IO) {
-                val scaleFactor = 3
-                val scaledBitmap = appInfo.loadIcon(context.packageManager)
-                    .toBitmap()
-                    .scale(
-                        iconSize.value.toInt() * scaleFactor,
-                        iconSize.value.toInt() * scaleFactor,
-                        true
-                    )
-                icon.value = scaledBitmap.asImageBitmap()
-            }
+    Column(modifier = modifier) {
+        val itemWidth = remember { mutableStateOf(0.dp) }
+        val icon = remember { mutableStateOf<ImageBitmap?>(null) }
+        val iconPadding = remember { mutableStateOf(0.dp) }
+        val iconWidth = remember { mutableStateOf(0.dp) }
+
+        modifier.onGloballyPositioned{ coordinates ->
+            itemWidth.value = coordinates.size.width.toDp()
         }
-    }
 
-    Column(modifier = modifier.padding(8.dp).height(100.dp)) {
-        val imageModifier = Modifier.width(iconSize)
-            .height(iconSize)
+        val iconModifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
             .align(Alignment.CenterHorizontally)
+            .padding(iconPadding.value)
+            .onGloballyPositioned{ coordinates ->
+                iconWidth.value = coordinates.size.width.toDp()
+                iconPadding.value = iconWidth.value / 4
+            }
+
         if (icon.value == null) {
-            Spacer(imageModifier)
+            Spacer(iconModifier)
+            LaunchedEffect(appInfo.packageName) {
+                withContext(Dispatchers.IO) {
+                    val scaledBitmap = appInfo.loadIcon(context.packageManager)
+                        .toBitmap()
+                    icon.value = scaledBitmap.asImageBitmap()
+                    // do not scale, since the icon size is acceptable
+//                     val memSize = icon.value!!.asAndroidBitmap().byteCount
+//                     println("icon mem size: ${memSize/1024} KB")
+                }
+            }
         } else {
-            Image(bitmap = icon.value!!, contentDescription = null, imageModifier)
+            Image(bitmap = icon.value!!, contentDescription = null, iconModifier)
         }
         Spacer(Modifier.width(8.dp))
         Text(text = appInfo.loadLabel(context.packageManager).toString(),
@@ -141,14 +149,28 @@ fun AppGridItem(
 
 @Composable
 fun AppGrid(list: List<ApplicationInfo>) {
-    LazyVerticalGrid (
-        columns = GridCells.Fixed(4),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = Modifier.fillMaxSize()
+    val itemHeight = remember { mutableStateOf(0.dp) }
+    val itemWidth = remember { mutableStateOf(0.dp) }
+    Box(modifier = Modifier
+        .fillMaxSize()
+        .onGloballyPositioned { coordinates ->
+            itemHeight.value = coordinates.size.height.toDp() / APP_ROW_PER_PAGE
+            itemWidth.value = coordinates.size.width.toDp() / APP_COLUMN_PER_PAGE
+        }
+        .border(2.dp, Color.Blue)   // FIXME: debug only
     ) {
-        items(list.size) { idx ->
-            AppGridItem(list[idx])
+        list.forEachIndexed { index, app ->
+            val row = index / APP_COLUMN_PER_PAGE
+            val column = index % APP_COLUMN_PER_PAGE
+            AppGridItem(app,
+                Modifier
+                    .width(itemWidth.value)
+                    .height(itemHeight.value)
+                    .offset(
+                        x = (itemWidth.value * column).coerceAtLeast(0.dp),
+                        y = (itemHeight.value * row).coerceAtLeast(0.dp)
+                    )
+            )
         }
     }
 }
@@ -178,9 +200,18 @@ fun AppPagers(list: List<List<ApplicationInfo>>, modifier: Modifier = Modifier) 
 
 @Composable
 fun PinedBar(pinedApps: List<ApplicationInfo>, modifier: Modifier = Modifier) {
-    Row (modifier = modifier){
+    val itemWidth = remember { mutableStateOf(0.dp) }
+    Row (modifier = modifier
+        .onGloballyPositioned{ coordinates ->
+            itemWidth.value = coordinates.size.width.toDp() / APP_PIN_MAX_COUNT
+        }
+    ){
         for (app in pinedApps) {
-            AppGridItem(app)
+            AppGridItem(app,
+                Modifier
+                    .width(itemWidth.value)
+                    .wrapContentHeight()
+            )
         }
     }
 }
@@ -191,20 +222,29 @@ fun MainContent(
     pinedApps: List<ApplicationInfo>,
     modifier: Modifier = Modifier) {
     Box(modifier = modifier) {
-        val bottomBarHeight = remember { mutableStateOf(0.dp) }
+        val itemHeight = remember { mutableStateOf(0.dp) }
+        val itemWidth = remember { mutableStateOf(0.dp) }
+        val pagerBottomPadding = remember { mutableStateOf(0.dp) }
 
         AppPagers(pagedApps,
             Modifier.fillMaxSize()
-                .padding(bottom = bottomBarHeight.value)
-                .border(width = 2.dp, color = Color.Green)  // FIXME: debug only
+                .padding(bottom = pagerBottomPadding.value)
+                .border(width = 1.dp, color = Color.Green)  // FIXME: debug only
+                .onGloballyPositioned { coordinates ->
+                    itemHeight.value = coordinates.size.height.toDp() / APP_ROW_PER_PAGE
+                    itemWidth.value = coordinates.size.width.toDp() / APP_COLUMN_PER_PAGE
+                    pagerBottomPadding.value = itemHeight.value
+                }
         )
         Box(modifier = Modifier
+            .height(itemHeight.value)
             .align(Alignment.BottomCenter)
-            .onGloballyPositioned { coordinates ->
-                bottomBarHeight.value = coordinates.size.height.toDp()
-            }
         ) {
-            PinedBar(pinedApps)
+            PinedBar(pinedApps,
+                Modifier
+                    .fillMaxSize()
+                    .border(width = 1.dp, color = Color.Red) // FIXME: debug only
+            )
         }
     }
 }
