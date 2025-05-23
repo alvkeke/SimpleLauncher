@@ -133,8 +133,8 @@ fun AppGridItem(
                         .toBitmap()
                     icon.value = scaledBitmap.asImageBitmap()
                     // do not scale, since the icon size is acceptable
-//                     val memSize = icon.value!!.asAndroidBitmap().byteCount
-//                     println("icon mem size: ${memSize/1024} KB")
+                    // val memSize = icon.value!!.asAndroidBitmap().byteCount
+                    // println("icon mem size: ${memSize/1024} KB")
                 }
             }
         } else {
