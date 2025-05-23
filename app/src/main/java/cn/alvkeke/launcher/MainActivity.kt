@@ -2,16 +2,13 @@ package cn.alvkeke.launcher
 
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
-import android.content.res.Resources
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -23,7 +20,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Text
@@ -33,10 +29,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -96,35 +90,28 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-fun Int.toDp(): Dp = (this / Resources.getSystem().displayMetrics.density).dp
-
 @Composable
-fun AppGridItem(
+fun AppItem(
     appInfo: ApplicationInfo,
+    width: Dp,
+    height: Dp,
     modifier: Modifier = Modifier
 ) {
     // add Image item for App icon
     val context = LocalContext.current
 
-    Column(modifier = modifier) {
-        val itemWidth = remember { mutableStateOf(0.dp) }
+    Column(modifier = modifier
+        .width(width = width)
+        .height(height = height)
+    ) {
+        val itemWidth = width
         val icon = remember { mutableStateOf<ImageBitmap?>(null) }
-        val iconPadding = remember { mutableStateOf(0.dp) }
-        val iconWidth = remember { mutableStateOf(0.dp) }
-
-        modifier.onGloballyPositioned{ coordinates ->
-            itemWidth.value = coordinates.size.width.toDp()
-        }
+        val iconWidth = itemWidth * 2 / 3
 
         val iconModifier = Modifier
-            .fillMaxWidth()
+            .width(iconWidth)
             .aspectRatio(1f)
             .align(Alignment.CenterHorizontally)
-            .padding(iconPadding.value)
-            .onGloballyPositioned{ coordinates ->
-                iconWidth.value = coordinates.size.width.toDp()
-                iconPadding.value = iconWidth.value / 4
-            }
 
         if (icon.value == null) {
             Spacer(iconModifier)
@@ -154,26 +141,24 @@ fun AppGridItem(
 
 @Composable
 fun AppGrid(list: List<ApplicationInfo>) {
-    val itemHeight = remember { mutableStateOf(0.dp) }
-    val itemWidth = remember { mutableStateOf(0.dp) }
-    Box(modifier = Modifier
+    BoxWithConstraints (modifier = Modifier
         .fillMaxSize()
-        .onGloballyPositioned { coordinates ->
-            itemHeight.value = coordinates.size.height.toDp() / APP_ROW_PER_PAGE
-            itemWidth.value = coordinates.size.width.toDp() / APP_COLUMN_PER_PAGE
-        }
-        .border(2.dp, Color.Blue)   // FIXME: debug only
+        .padding(8.dp)
     ) {
+        val scope = this
+        val itemHeight = scope.maxHeight / APP_ROW_PER_PAGE
+        val itemWidth = scope.maxWidth / APP_COLUMN_PER_PAGE
+
         list.forEachIndexed { index, app ->
             val row = index / APP_COLUMN_PER_PAGE
             val column = index % APP_COLUMN_PER_PAGE
-            AppGridItem(app,
+            AppItem(app,
+                itemWidth,
+                itemHeight,
                 Modifier
-                    .width(itemWidth.value)
-                    .height(itemHeight.value)
                     .offset(
-                        x = (itemWidth.value * column).coerceAtLeast(0.dp),
-                        y = (itemHeight.value * row).coerceAtLeast(0.dp)
+                        x = (itemWidth * column).coerceAtLeast(0.dp),
+                        y = (itemHeight * row).coerceAtLeast(0.dp)
                     )
             )
         }
@@ -205,17 +190,16 @@ fun AppPagers(list: List<List<ApplicationInfo>>, modifier: Modifier = Modifier) 
 
 @Composable
 fun PinedBar(pinedApps: List<ApplicationInfo>, modifier: Modifier = Modifier) {
-    val itemWidth = remember { mutableStateOf(0.dp) }
-    Row (modifier = modifier
-        .onGloballyPositioned{ coordinates ->
-            itemWidth.value = coordinates.size.width.toDp() / APP_PIN_MAX_COUNT
-        }
-    ){
+    BoxWithConstraints (modifier = modifier){
+        val scope = this
+        val itemWidth = scope.maxWidth / APP_PIN_MAX_COUNT
+
         for (app in pinedApps) {
-            AppGridItem(app,
+            AppItem(app,
+                itemWidth,
+                scope.maxHeight,
                 Modifier
-                    .width(itemWidth.value)
-                    .wrapContentHeight()
+                    .offset(x = (itemWidth * pinedApps.indexOf(app)).coerceAtLeast(0.dp) )
             )
         }
     }
@@ -226,31 +210,22 @@ fun MainContent(
     pagedApps: List<List<ApplicationInfo>>,
     pinedApps: List<ApplicationInfo>,
     modifier: Modifier = Modifier) {
-    Box(modifier = modifier) {
-        val itemHeight = remember { mutableStateOf(0.dp) }
-        val itemWidth = remember { mutableStateOf(0.dp) }
-        val pagerBottomPadding = remember { mutableStateOf(0.dp) }
+    BoxWithConstraints (modifier = modifier) {
+        val scope = this
+        val itemHeight = scope.maxHeight / (APP_ROW_PER_PAGE + 1)
+        // val itemWidth = scope.maxWidth / APP_COLUMN_PER_PAGE
+        val pagerBottomPadding = itemHeight
 
         AppPagers(pagedApps,
             Modifier.fillMaxSize()
-                .padding(bottom = pagerBottomPadding.value)
-                .border(width = 1.dp, color = Color.Green)  // FIXME: debug only
-                .onGloballyPositioned { coordinates ->
-                    itemHeight.value = coordinates.size.height.toDp() / APP_ROW_PER_PAGE
-                    itemWidth.value = coordinates.size.width.toDp() / APP_COLUMN_PER_PAGE
-                    pagerBottomPadding.value = itemHeight.value
-                }
+                .padding(bottom = pagerBottomPadding)
         )
-        Box(modifier = Modifier
-            .height(itemHeight.value)
-            .align(Alignment.BottomCenter)
-        ) {
-            PinedBar(pinedApps,
-                Modifier
-                    .fillMaxSize()
-                    .border(width = 1.dp, color = Color.Red) // FIXME: debug only
-            )
-        }
+        PinedBar(pinedApps,
+            Modifier
+                .height(itemHeight)
+                .fillMaxWidth()
+                .align(Alignment.BottomStart)
+        )
     }
 }
 
