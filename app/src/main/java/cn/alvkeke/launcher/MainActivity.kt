@@ -1,5 +1,6 @@
 package cn.alvkeke.launcher
 
+import android.app.WallpaperManager
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -29,6 +30,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
@@ -36,6 +38,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
+import androidx.core.view.WindowCompat
 import cn.alvkeke.launcher.ui.theme.LauncherTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -45,6 +48,8 @@ const val APP_PIN_MAX_COUNT = 4
 const val APP_COLUMN_PER_PAGE = 4
 const val APP_ROW_PER_PAGE = 6
 const val APP_COUNT_PER_PAGE = APP_COLUMN_PER_PAGE * APP_ROW_PER_PAGE
+
+const val PADDING_APP_CONTAINER = 8 // padding for each app item
 
 class MainActivity : ComponentActivity() {
 
@@ -76,11 +81,32 @@ class MainActivity : ComponentActivity() {
             println("Page-$i, app count: ${page.size}")
         }
 
+        val manager = WallpaperManager.getInstance(this)
+        val wallpaperColors = manager.getWallpaperColors(WallpaperManager.FLAG_SYSTEM)
+        val primaryColor = wallpaperColors?.primaryColor
+        val composeColor = if (primaryColor != null) {
+            Color(primaryColor.toArgb())
+        } else {
+            Color.Black // treat as black background
+        }
+
+        val darkness = composeColor.getDarkness()
+        val lightTheme = darkness < 0.5f
+        println("==================== darkness: $darkness, lightTheme: $lightTheme")
+        WindowCompat
+            .getInsetsController(window, window.decorView)
+            .isAppearanceLightStatusBars = lightTheme
+        val textColor: Color = if (lightTheme)
+            Color.Black
+        else
+            Color.White
+
         setContent {
             LauncherTheme {
                 MainContent(
                     pagedApps = pagedApps,
                     pinedApps = pinedApps,
+                    textColor = textColor,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(WindowInsets.systemBars.asPaddingValues())
@@ -90,9 +116,15 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+fun Color.getDarkness(): Float {
+    val darkness: Float = 1 - (0.299f * this.red + 0.587f * this.green + 0.114f * this.blue) / 255
+    return darkness
+}
+
 @Composable
 fun AppItem(
     appInfo: ApplicationInfo,
+    textColor: Color,
     width: Dp,
     height: Dp,
     modifier: Modifier = Modifier
@@ -130,20 +162,21 @@ fun AppItem(
         }
         Spacer(Modifier.width(8.dp))
         Text(text = appInfo.loadLabel(context.packageManager).toString(),
-            textAlign = TextAlign.Center,
             modifier = Modifier
                 .align(Alignment.CenterHorizontally)
-                .fillMaxWidth()
+                .fillMaxWidth(),
+            color = textColor,
+            textAlign = TextAlign.Center,
         )
     }
 
 }
 
 @Composable
-fun AppGrid(list: List<ApplicationInfo>) {
+fun AppGrid(list: List<ApplicationInfo>, textColor: Color) {
     BoxWithConstraints (modifier = Modifier
         .fillMaxSize()
-        .padding(8.dp)
+        .padding(PADDING_APP_CONTAINER.dp)
     ) {
         val scope = this
         val itemHeight = scope.maxHeight / APP_ROW_PER_PAGE
@@ -153,6 +186,7 @@ fun AppGrid(list: List<ApplicationInfo>) {
             val row = index / APP_COLUMN_PER_PAGE
             val column = index % APP_COLUMN_PER_PAGE
             AppItem(app,
+                textColor,
                 itemWidth,
                 itemHeight,
                 Modifier
@@ -167,13 +201,14 @@ fun AppGrid(list: List<ApplicationInfo>) {
 
 @Composable
 fun AppPageContent(
-    list: List<ApplicationInfo>
+    list: List<ApplicationInfo>,
+    textColor: Color,
 ) {
-    AppGrid(list)
+    AppGrid(list, textColor)
 }
 
 @Composable
-fun AppPagers(list: List<List<ApplicationInfo>>, modifier: Modifier = Modifier) {
+fun AppPagers(list: List<List<ApplicationInfo>>, textColor: Color, modifier: Modifier = Modifier) {
     val pagerState = rememberPagerState {
         list.size
     }
@@ -184,18 +219,19 @@ fun AppPagers(list: List<List<ApplicationInfo>>, modifier: Modifier = Modifier) 
         // TODO: find a better way to load pages without lag
         beyondViewportPageCount = list.size
     ) { page ->
-        AppPageContent (list[page])
+        AppPageContent (list[page], textColor)
     }
 }
 
 @Composable
-fun PinedBar(pinedApps: List<ApplicationInfo>, modifier: Modifier = Modifier) {
-    BoxWithConstraints (modifier = modifier){
+fun PinedBar(pinedApps: List<ApplicationInfo>, textColor: Color, modifier: Modifier = Modifier) {
+    BoxWithConstraints (modifier = modifier.padding(PADDING_APP_CONTAINER.dp)){
         val scope = this
         val itemWidth = scope.maxWidth / APP_PIN_MAX_COUNT
 
         for (app in pinedApps) {
             AppItem(app,
+                textColor,
                 itemWidth,
                 scope.maxHeight,
                 Modifier
@@ -209,6 +245,7 @@ fun PinedBar(pinedApps: List<ApplicationInfo>, modifier: Modifier = Modifier) {
 fun MainContent(
     pagedApps: List<List<ApplicationInfo>>,
     pinedApps: List<ApplicationInfo>,
+    textColor: Color,
     modifier: Modifier = Modifier) {
     BoxWithConstraints (modifier = modifier) {
         val scope = this
@@ -217,10 +254,12 @@ fun MainContent(
         val pagerBottomPadding = itemHeight
 
         AppPagers(pagedApps,
+            textColor,
             Modifier.fillMaxSize()
                 .padding(bottom = pagerBottomPadding)
         )
         PinedBar(pinedApps,
+            textColor,
             Modifier
                 .height(itemHeight)
                 .fillMaxWidth()
