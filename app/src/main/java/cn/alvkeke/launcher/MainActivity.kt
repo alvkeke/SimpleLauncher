@@ -4,10 +4,12 @@ import android.app.WallpaperManager
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -135,6 +137,15 @@ fun AppItem(
     Column(modifier = modifier
         .width(width = width)
         .height(height = height)
+        .clickable{
+            val intent = context.packageManager.getLaunchIntentForPackage(appInfo.packageName)
+            if (intent != null) {
+                context.startActivity(intent)
+            } else {
+                Toast.makeText(context,
+                    "Cannot launch app: ${appInfo.packageName}", Toast.LENGTH_SHORT).show()
+            }
+        }
     ) {
         val itemWidth = width
         val icon = remember { mutableStateOf<ImageBitmap?>(null) }
